@@ -3,6 +3,7 @@ channels:
 - main
 dependencies:
 - beautifulsoup4=4.12.3
+
 - black=24.8.0
 - click=8.1.7
 - codecov=2.1.13
