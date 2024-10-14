@@ -134,6 +134,7 @@ class GetCommand(BaseCommand):
 
         # Execute a get through selenium
         try:
+            webdriver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => false,});")
             webdriver.get(self.url)
         except TimeoutException:
             pass
