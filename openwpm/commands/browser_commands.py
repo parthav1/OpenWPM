@@ -777,7 +777,15 @@ class CrawlCommand(BaseCommand):
         self.safe_get(driver, self.start_url)
         logger.info("Collecting BFS frontier")
 
+        # Mark start URL as visited to prevent selecting it as a frontier link
+        normalized_start = self.normalize_url(self.start_url)
+        self.visited.add(normalized_start)
+
         all_links = self.extract_links(driver, base_netloc)
+        
+        # Filter out the start URL (in case it appears as a link on the page)
+        all_links = [link for link in all_links if self.normalize_url(link) != normalized_start]
+        
         random.shuffle(all_links)
         
         # Select extra links as backup (50% more) in case some fail
