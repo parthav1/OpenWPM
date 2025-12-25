@@ -1,5 +1,6 @@
 # Project specific files
 *.txt
+*.zip
 chunks
 
 # Tranco list cache directory
