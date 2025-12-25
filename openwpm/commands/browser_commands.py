@@ -572,7 +572,7 @@ class CrawlCommand(BaseCommand):
         self.visited = set()
 
         # Track crawl tree structure: {parent_url: [child_url, ...]}
-        self.crawl_tree = {}
+        self.crawl_tree = {} #TODO: When we save the crawl tree, let's save the pickle of the whole thing too. Also, it needs to be renamed so it matches which shard (along with the visit_id and the domain name is from...)
 
     def __repr__(self):
         return f"CrawlCommand({self.start_url}, frontier={self.frontier_links}, dfs={self.dfs_links}, depth={self.max_depth})"
@@ -786,6 +786,16 @@ class CrawlCommand(BaseCommand):
         # Filter out the start URL (in case it appears as a link on the page)
         all_links = [link for link in all_links if self.normalize_url(link) != normalized_start]
         
+        # Deduplicate all_links (extract_links already deduplicates, but be extra safe)
+        seen_links = set()
+        unique_links = []
+        for link in all_links:
+            normalized = self.normalize_url(link)
+            if normalized not in seen_links:
+                seen_links.add(normalized)
+                unique_links.append(link)
+        all_links = unique_links
+        
         random.shuffle(all_links)
         
         # Select extra links as backup (50% more) in case some fail
@@ -803,6 +813,11 @@ class CrawlCommand(BaseCommand):
                 break
                 
             href = frontier_pool[i]
+            
+            # Skip if we've already attempted this URL as a frontier link or if it's been visited
+            if href in frontier_attempted or href in self.visited:
+                continue
+            
             frontier_attempted.add(href)
             
             # Try to navigate with retries
@@ -813,8 +828,9 @@ class CrawlCommand(BaseCommand):
                 if attempt > 0:
                     logger.info(f"Retry {attempt}/{max_retries} for frontier link: {href}")
                 
-                self.visited.add(href)
+                # Don't add to visited until navigation succeeds
                 if self.safe_navigate(driver, href):
+                    self.visited.add(href)
                     navigated = True
                     break
                 else:
@@ -834,8 +850,8 @@ class CrawlCommand(BaseCommand):
                         href = backup_href
                         frontier_attempted.add(href)
                         logger.info(f"Using backup frontier link: {href}")
-                        self.visited.add(href)
                         if self.safe_navigate(driver, href):
+                            self.visited.add(href)
                             navigated = True
                             break
                 
