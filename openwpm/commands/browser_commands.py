@@ -572,7 +572,7 @@ class CrawlCommand(BaseCommand):
         self.visited = set()
 
         # Track crawl tree structure: {parent_url: [child_url, ...]}
-        self.crawl_tree = {} #TODO: When we save the crawl tree, let's save the pickle of the whole thing too. Also, it needs to be renamed so it matches which shard (along with the visit_id and the domain name is from...)
+        self.crawl_tree = {}
 
     def __repr__(self):
         return f"CrawlCommand({self.start_url}, frontier={self.frontier_links}, dfs={self.dfs_links}, depth={self.max_depth})"
