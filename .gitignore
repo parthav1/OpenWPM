@@ -1,3 +1,6 @@
+# Project specific files
+*.txt
+
 # Tranco list cache directory
 .tranco/
 
