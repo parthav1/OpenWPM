@@ -66,6 +66,8 @@ start = time.time()
 
 for w in workers:
     cmd = [
+        "xvfb-run",
+        "-a",
         PYTHON_EXEC,
         WORKER_SCRIPT,
         str(w["chunk_file"]),
