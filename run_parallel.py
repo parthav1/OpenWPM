@@ -3,6 +3,7 @@ import time
 import random
 import math
 import subprocess
+import shutil
 from pathlib import Path
 from datetime import date
 
@@ -60,6 +61,7 @@ print(f"Prepared {len(workers)} shards total")
 
 # LAUNCH WORKERS
 procs = []
+log_handles = []
 start = time.time()
 
 for w in workers:
@@ -73,7 +75,17 @@ for w in workers:
     ]
 
     print(f"Starting {w['list_name']} shard {w['shard_idx']} (worker {w['worker_id']})")
-    procs.append(subprocess.Popen(cmd))
+    
+    # Create log file for this worker
+    log_file = Path(f"chunks/{today}_{w['list_name']}_shard{w['shard_idx']}_worker{w['worker_id']}.log")
+    log_handle = open(log_file, "w")
+    log_handles.append(log_handle)
+    
+    procs.append(subprocess.Popen(
+        cmd,
+        stdout=log_handle,
+        stderr=log_handle
+    ))
     time.sleep(4)  # stagger launches
 
 # WAIT / TIMEOUT
@@ -91,3 +103,25 @@ while True:
     time.sleep(30)
 
 print("All workers completed.")
+
+for handle in log_handles:
+    handle.close()
+
+# ZIP UP EVERYTHING
+print("Zipping data directories...")
+archive_name = f"misinformation_crawl_{today}"
+
+if Path("datadir").exists():
+    shutil.make_archive(f"{archive_name}_datadir", 'zip', "datadir")
+    print(f"Created {archive_name}_datadir.zip")
+    shutil.rmtree("datadir")
+    print("Deleted datadir/")
+
+# Create zip of chunks (contains shard files and log files)
+if Path("chunks").exists():
+    shutil.make_archive(f"{archive_name}_chunks", 'zip', "chunks")
+    print(f"Created {archive_name}_chunks.zip")
+    shutil.rmtree("chunks")
+    print("Deleted chunks/")
+
+print("Archiving complete")
