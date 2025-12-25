@@ -2,6 +2,7 @@ import gzip
 import json
 import logging
 import os
+import pickle
 import random
 import sys
 import time
@@ -659,27 +660,45 @@ class CrawlCommand(BaseCommand):
         return "\n".join(lines)
 
     def save_crawl_tree(self, manager_params):
-        """Save the crawl tree to a text file"""
+        """Save the crawl tree to a text file and pickle file"""
         if not self.crawl_tree:
             return
         
+        try:
+            parsed = urlparse(self.start_url)
+            domain = parsed.netloc.replace("www.", "")
+            domain = "".join(c if c.isalnum() or c in ".-" else "_" for c in domain)
+        except Exception:
+            domain = "unknown"
+        
         tree_text = self.format_tree(self.start_url)
         
-        # Create filename with visit_id
-        outname = os.path.join(
+        # Create filenames with visit_id and domain
+        base_name = f"crawl-tree-{domain}-{self.visit_id}"
+        txt_outname = os.path.join(
             manager_params.data_directory,
-            f"crawl-tree-{self.visit_id}.txt"
+            f"{base_name}.txt"
+        )
+        pickle_outname = os.path.join(
+            manager_params.data_directory,
+            f"{base_name}.pkl"
         )
         
         try:
-            with open(outname, "w", encoding="utf-8") as f:
+            # Save text file
+            with open(txt_outname, "w", encoding="utf-8") as f:
                 f.write(f"Crawl Tree for visit_id {self.visit_id}\n")
                 f.write(f"Start URL: {self.start_url}\n")
                 f.write(f"Frontier links: {self.frontier_links}, DFS links per level: {self.dfs_links}, Max depth: {self.max_depth}\n")
                 f.write("=" * 80 + "\n\n")
                 f.write(tree_text)
                 f.write("\n")
-            logger.info(f"BROWSER {self.browser_id}: Saved crawl tree to {outname}")
+            logger.info(f"BROWSER {self.browser_id}: Saved crawl tree text to {txt_outname}")
+            
+            # Save pickle file
+            with open(pickle_outname, "wb") as f:
+                pickle.dump(self.crawl_tree, f)
+            logger.info(f"BROWSER {self.browser_id}: Saved crawl tree pickle to {pickle_outname}")
         except Exception as e:
             logger.error(
                 f"BROWSER {self.browser_id}: Failed to save crawl tree: {e}",
