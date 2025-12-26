@@ -15,4 +15,10 @@ declare global {
     scope: any,
     options: { defineAs: string; allowCrossOriginArguments: boolean },
   ): any;
+
+  export interface openWpmContentScriptConfig {
+    testing: boolean;
+    jsInstrumentationSettings: any[];
+    useStealth?: boolean;
+  }
 }
