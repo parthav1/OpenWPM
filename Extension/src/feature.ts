@@ -73,13 +73,18 @@ async function main() {
     cookieInstrument.run(config.browser_id);
   }
 
-  if (config.js_instrument) {
-    loggingDB.logDebug("Javascript instrumentation enabled");
+  if (config.js_instrument || config.stealth_js_instrument) {
+    loggingDB.logDebug(
+      config.stealth_js_instrument
+        ? "Stealth Javascript instrumentation enabled"
+        : "Javascript instrumentation enabled"
+    );
     const jsInstrument = new JavascriptInstrument(loggingDB);
     jsInstrument.run(config.browser_id);
     await jsInstrument.registerContentScript(
       config.testing,
       config.cleaned_js_instrument_settings,
+      config.stealth_js_instrument || false,
     );
   }
 
