@@ -32,9 +32,11 @@ browser_params = [BrowserParams(display_mode="native")]
 
 for bp in browser_params:
     bp.http_instrument = True
+    bp.donottrack = False
     bp.cookie_instrument = True
     bp.navigation_instrument = True
     bp.stealth_js_instrument = True
+    bp.disable_flash = False
     bp.save_content = "script"
     bp.save_all_content = True
     bp.save_javascript = True
