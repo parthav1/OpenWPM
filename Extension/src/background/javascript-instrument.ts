@@ -117,10 +117,12 @@ export class JavascriptInstrument {
   public async registerContentScript(
     testing: boolean,
     jsInstrumentationSettings: JSInstrumentRequest[],
+    useStealth: boolean = false,
   ) {
     const contentScriptConfig = {
       testing,
       jsInstrumentationSettings,
+      useStealth,
     };
     if (contentScriptConfig) {
       // TODO: Avoid using window to pass the content script config
