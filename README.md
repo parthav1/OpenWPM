@@ -31,8 +31,8 @@ the instrumentation section below for more details.
 
 ## Installation
 
-OpenWPM is tested on Ubuntu 18.04 via GitHub actions and is commonly used via the docker container
-that this repo builds, which is also based on Ubuntu. Although we don't officially support
+OpenWPM is tested on Ubuntu 24.04 via GitHub Actions and is commonly used via the docker container
+that this repo builds, which is based on Ubuntu 22.04. Although we don't officially support
 other platforms, conda is a cross platform utility and the install script can be expected
 to work on OSX and other linux distributions.
 
@@ -120,7 +120,7 @@ available.
       ```
 
       - If you are running in a headless environment (e.g. a remote server), ensure
-      that all browsers have the `headless` browser parameter set to `True` before
+      that all browsers have `display_mode` set to `"headless"` before
       launching.
     - If you are seeing this error randomly during crawls it can be caused by
     an overtaxed system, either memory or CPU usage. Try lowering the number of
@@ -131,7 +131,7 @@ available.
     setting name `extensions.experiments.enabled` in
     `openwpm/deploy_browsers/configure_firefox.py`.
 
-3. Make sure you're conda environment is activated (`conda activate openwpm`). You can see
+3. Make sure your conda environment is activated (`conda activate openwpm`). You can see
     you environments and the activate one by running `conda env list` the active environment
     will have a `*` by it.
 
@@ -227,7 +227,7 @@ The structured providers use the Parquet format.
 **NOTE:** The Parquet and SQL schemas should be kept in sync except
 output-specific columns (e.g., `instance_id` in the Parquet output). You can compare
 the two schemas by running
-`diff -y openwpm/DataAggregator/schema.sql openwpm/DataAggregator/parquet_schema.py`.
+`diff -y openwpm/storage/schema.sql openwpm/storage/parquet_schema.py`.
 
 ## Docker Deployment for OpenWPM
 

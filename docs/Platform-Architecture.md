@@ -63,7 +63,7 @@ Have a look at [`custom_command.py`](../custom_command.py)
 
 ### Overview
 
-Contained in `openwpm/BrowserManager.py`, Browser Managers provide a wrapper around the drivers used to automate full browser instances. In particular, we opted to use [Selenium](http://docs.seleniumhq.org/) to drive full browser instances as bot detection frameworks can more easily detect lightweight alternatives such as PhantomJS.
+Contained in `openwpm/browser_manager.py`, Browser Managers provide a wrapper around the drivers used to automate full browser instances. In particular, we opted to use [Selenium](http://docs.seleniumhq.org/) to drive full browser instances as bot detection frameworks can more easily detect lightweight alternatives such as PhantomJS.
 
 Browser Managers receive the commands in a CommandSequence from the Task Manager one by one, calling the `execute`
 method on each of them and stopping if one command should fail.
@@ -93,12 +93,14 @@ The Extension makes heavy use of privileged APIs and can only be installed on un
 
 The currently supported instruments can be found in [Configuration.md](Configuration.md#Instruments)
 
-## Data Aggregator
+## Storage Controller
 
 ### Overview
 
-One of the Data Aggregators, contained in `openwpm/DataAggregator`, gets spawned in a separate process and receives data from the WebExtension and the platform alike. We as previously mentioned we support both local and remote data saving.
-The most useful feature of the Data Aggregator is the fact that it is isolated from the other processes through a network socket interface (see `openwpm/SocketInterface.py`).
+The Storage Controller, contained in `openwpm/storage/storage_controller.py`, gets spawned in a separate process and receives data from the WebExtension and the platform alike. It supports both local and remote data saving via pluggable `StructuredStorageProvider` and `UnstructuredStorageProvider` implementations.
+The Storage Controller is isolated from the other processes through a network socket interface (see `openwpm/socket_interface.py`).
+
+For detailed internals (communication channels, timeouts, coupling analysis), see [Architecture-Internals.md](Architecture-Internals.md).
 
 ### Data Logged
 

@@ -2,7 +2,6 @@ channels:
     - conda-forge
 dependencies:
     - black
-    - codecov
     - pytest-cov
     - ipython
     - isort
@@ -15,6 +14,7 @@ dependencies:
     - recommonmark
     - sphinx-markdown-tables
     - pip:
+        - pytest-split
         - types-pyyaml
         - types-redis
         - types-tabulate

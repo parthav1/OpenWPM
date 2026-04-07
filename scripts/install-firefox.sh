@@ -9,7 +9,7 @@ set -e
 # Note this script is **destructive** and will
 # remove the existing Firefox in the OpenWPM directory
 
-TAG='5d1d0e27dc3a99271b76833be3d9a4a12e709281' # FIREFOX_137_0_2_RELEASE
+TAG='b20f603334b8677ba67ed2fb12a1043b3c8c6933' # FIREFOX_149_0_RELEASE
 
 case "$(uname -s)" in
 Darwin)
@@ -29,7 +29,13 @@ Linux)
 esac
 
 UNBRANDED_RELEASE_BUILD="https://firefox-ci-tc.services.mozilla.com/api/index/v1/task/gecko.v2.mozilla-release.revision.${TAG}.firefox.${OS}64-add-on-devel/artifacts/public/build/target${TARGET_SUFFIX}"
-wget -q "$UNBRANDED_RELEASE_BUILD"
+echo "Downloading Firefox from: $UNBRANDED_RELEASE_BUILD"
+if ! wget -q --show-progress -O "target${TARGET_SUFFIX}" "$UNBRANDED_RELEASE_BUILD"; then
+  echo "Error: Failed to download Firefox. Check your network connection."
+  echo "If your connection is fine, the Firefox version may be too old and no longer available on TaskCluster."
+  echo "See https://github.com/openwpm/OpenWPM/issues/964 for more details."
+  exit 1
+fi
 
 case "$(uname -s)" in
 Darwin)
@@ -40,7 +46,10 @@ Darwin)
   rm target.dmg
   ;;
 Linux)
-  tar Jxf target.tar.xz
+  if ! tar Jxf target.tar.xz; then
+    echo "Error: Failed to extract Firefox archive."
+    exit 1
+  fi
   rm -rf firefox-bin
   mv firefox firefox-bin
   rm target.tar.xz
