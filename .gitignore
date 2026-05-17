@@ -4,6 +4,9 @@
 chunks
 *.sqlite
 
+# Environment files
+.env
+
 # Tranco list cache directory
 .tranco/
 
