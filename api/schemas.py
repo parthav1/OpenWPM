@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field, HttpUrl, field_validator
 
 
 class CrawlOptions(BaseModel):
+    mode: Literal["single_page", "site_crawl"] = "single_page"
     frontier_links: int = Field(default=3, ge=0, le=20)
     dfs_links: int = Field(default=2, ge=0, le=20)
     depth: int = Field(default=3, ge=0, le=10)
