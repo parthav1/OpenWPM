@@ -2,6 +2,13 @@
 set -euo pipefail
 
 cd /root/OpenWPM
+
+if [[ -f /root/OpenWPM/api/.env ]]; then
+  set -a
+  source /root/OpenWPM/api/.env
+  set +a
+fi
+
 source /root/miniconda3/etc/profile.d/conda.sh
 conda activate openwpm
 
