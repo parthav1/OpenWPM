@@ -1,0 +1,141 @@
+from __future__ import annotations
+
+import argparse
+import json
+import traceback
+from pathlib import Path
+from typing import Any
+
+from openwpm.commands.browser_commands import CrawlCommand
+from openwpm.command_sequence import CommandSequence
+from openwpm.config import BrowserParams, ManagerParams
+from openwpm.storage.leveldb import LevelDbProvider
+from openwpm.storage.sql_provider import SQLiteStorageProvider
+from openwpm.task_manager import TaskManager
+from openwpm.stealth.commands import SetPosition, SetResolution
+
+from api import db
+from api.config import JOBS_DIR
+
+
+def normalize_url(url: str) -> str:
+    if "://" not in url:
+        return "http://" + url
+    return url
+
+
+def configure_browser(save_content: bool) -> BrowserParams:
+    bp = BrowserParams(display_mode="native")
+    bp.http_instrument = True
+    bp.donottrack = False
+    bp.cookie_instrument = True
+    bp.navigation_instrument = True
+    bp.stealth_js_instrument = True
+    bp.disable_flash = False
+    bp.tp_cookies = "always"
+    bp.bot_mitigation = True
+    bp.headless = False
+    if save_content:
+        bp.save_content = "script"
+        bp.save_all_content = True
+        bp.save_javascript = True
+    return bp
+
+
+def build_result(job_id: str, job_dir: Path, datadir: Path, sqlite_path: Path, leveldb_path: Path) -> dict[str, Any]:
+    job = db.get_job(job_id)
+    return {
+        "job_id": job_id,
+        "status": job["status"] if job else "unknown",
+        "output_dir": str(job_dir),
+        "datadir": str(datadir),
+        "sqlite_path": str(sqlite_path),
+        "leveldb_path": str(leveldb_path),
+        "openwpm_log": str(datadir / "openwpm.log"),
+        "runner_log": str(job_dir / "runner.log"),
+        "urls": job.get("urls", []) if job else [],
+        "article_text_status": "not_extracted",
+        "note": "Raw OpenWPM SQLite/LevelDB/content outputs are available at the paths above. Article text extraction can be added as a post-processing step.",
+    }
+
+
+def run_job(job_id: str) -> None:
+    db.init_db()
+    job_dir = JOBS_DIR / job_id
+    request_path = job_dir / "request.json"
+    result_path = job_dir / "result.json"
+    if not request_path.exists():
+        raise FileNotFoundError(f"Missing request file: {request_path}")
+
+    request = json.loads(request_path.read_text())
+    urls = [normalize_url(str(url)) for url in request["urls"]]
+    options = request.get("options", {})
+    save_content = bool(options.get("save_content", True))
+
+    datadir = job_dir / "crawl_output"
+    datadir.mkdir(parents=True, exist_ok=True)
+    sqlite_path = datadir / f"{job_id}.sqlite"
+    leveldb_path = datadir / f"{job_id}.ldb"
+
+    db.update_job(job_id, "running")
+    manager = None
+    failures = 0
+
+    try:
+        manager_params = ManagerParams(num_browsers=1)
+        manager_params.data_directory = datadir
+        manager_params.log_path = datadir / "openwpm.log"
+
+        browser_params = [configure_browser(save_content)]
+        sqlite = SQLiteStorageProvider(sqlite_path)
+        leveldb = LevelDbProvider(leveldb_path)
+        manager = TaskManager(manager_params, browser_params, sqlite, leveldb)
+
+        for idx, url in enumerate(urls):
+            db.update_url(job_id, idx, "running")
+            try:
+                print(f"[{job_id}] visiting {url}", flush=True)
+                cs = CommandSequence(url, site_rank=idx)
+                cs.append_command(SetResolution(1600, 800), timeout=10)
+                cs.append_command(SetPosition(50, 200), timeout=10)
+                cs.append_command(
+                    CrawlCommand(
+                        url,
+                        frontier_links=int(options.get("frontier_links", 3)),
+                        dfs_links=int(options.get("dfs_links", 2)),
+                        sleep=int(options.get("sleep", 3)),
+                        depth=int(options.get("depth", 3)),
+                    ),
+                    timeout=int(options.get("timeout", 400)),
+                )
+                manager.execute_command_sequence(cs)
+                db.update_url(job_id, idx, "succeeded")
+            except Exception as exc:
+                failures += 1
+                db.update_url(job_id, idx, "failed", error=f"{type(exc).__name__}: {exc}")
+                traceback.print_exc()
+
+        final_status = "failed" if failures == len(urls) else "succeeded"
+        db.update_job(job_id, final_status)
+    except Exception as exc:
+        db.update_job(job_id, "failed", error=f"{type(exc).__name__}: {exc}")
+        traceback.print_exc()
+    finally:
+        if manager is not None:
+            try:
+                manager.close()
+            except Exception:
+                traceback.print_exc()
+        result = build_result(job_id, job_dir, datadir, sqlite_path, leveldb_path)
+        result_path.write_text(json.dumps(result, indent=2, sort_keys=True))
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Run one crawler API job.")
+    parser.add_argument("--job-id", required=True)
+    args = parser.parse_args()
+    run_job(args.job_id)
+
+
+if __name__ == "__main__":
+    main()
