@@ -9,7 +9,7 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi import Depends, FastAPI, HTTPException, Response, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from api import db
@@ -45,6 +45,43 @@ def require_auth(credentials: HTTPAuthorizationCredentials | None = Depends(secu
 
 def make_job_id() -> str:
     return uuid.uuid4().hex[:16]
+
+
+def load_job_result(job_id: str) -> dict[str, Any]:
+    job = db.get_job(job_id)
+    if job is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unknown job_id")
+    result_path = Path(job["output_dir"]).parent / "result.json"
+    if result_path.exists():
+        return json.loads(result_path.read_text())
+    return {
+        "job_id": job_id,
+        "status": job["status"],
+        "output_dir": job["output_dir"],
+        "runner_log": job["log_path"],
+        "urls": job["urls"],
+        "html_files": [],
+        "message": "Results are not available until the crawl runner writes result.json.",
+    }
+
+
+def html_file_for_job(job_id: str, index: int) -> Path:
+    result = load_job_result(job_id)
+    html_files = result.get("html_files") or []
+    if index < 0 or index >= len(html_files):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No rendered HTML file at index {index}; found {len(html_files)} file(s)",
+        )
+    html_path = Path(html_files[index]).resolve()
+    job_root = (JOBS_DIR / job_id).resolve()
+    try:
+        html_path.relative_to(job_root)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Resolved file is outside job directory") from exc
+    if not html_path.exists() or not html_path.is_file():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Rendered HTML file is missing")
+    return html_path
 
 
 def run_subprocess(job_id: str) -> int:
@@ -175,22 +212,25 @@ def get_job(job_id: str) -> CrawlJobStatus:
 
 @app.get("/jobs/{job_id}/results", dependencies=[Depends(require_auth)])
 def get_results(job_id: str) -> dict[str, Any]:
-    job = db.get_job(job_id)
-    if job is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unknown job_id")
-    result_path = Path(job["output_dir"]).parent / "result.json"
-    if result_path.exists():
-        result = json.loads(result_path.read_text())
-    else:
-        result = {
-            "job_id": job_id,
-            "status": job["status"],
-            "output_dir": job["output_dir"],
-            "runner_log": job["log_path"],
-            "urls": job["urls"],
-            "message": "Results are not available until the crawl runner writes result.json.",
-        }
+    result = load_job_result(job_id)
+    html_files = result.get("html_files") or []
+    result["html_downloads"] = [f"/jobs/{job_id}/html/{idx}" for idx, _ in enumerate(html_files)]
     return result
+
+
+@app.get("/jobs/{job_id}/html", dependencies=[Depends(require_auth)])
+def get_first_html(job_id: str) -> Response:
+    return get_html(job_id, 0)
+
+
+@app.get("/jobs/{job_id}/html/{index}", dependencies=[Depends(require_auth)])
+def get_html(job_id: str, index: int) -> Response:
+    html_path = html_file_for_job(job_id, index)
+    return Response(
+        content=html_path.read_bytes(),
+        media_type="text/html; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{job_id}-url{index}.html"'},
+    )
 
 
 @app.get("/jobs", dependencies=[Depends(require_auth)])

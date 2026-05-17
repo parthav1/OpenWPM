@@ -15,7 +15,7 @@ class CrawlOptions(BaseModel):
     timeout: int = Field(default=400, ge=30, le=3600)
     save_content: bool = True
     dump_html: bool = True
-    dump_recursive_html: bool = True
+    dump_recursive_html: bool = False
     warmup_homepage: bool = True
 
 
