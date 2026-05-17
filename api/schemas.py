@@ -16,6 +16,7 @@ class CrawlOptions(BaseModel):
     save_content: bool = True
     dump_html: bool = True
     dump_recursive_html: bool = True
+    warmup_homepage: bool = True
 
 
 class CrawlRequest(BaseModel):
