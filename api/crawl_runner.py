@@ -44,6 +44,9 @@ def configure_browser(save_content: bool) -> BrowserParams:
 
 def build_result(job_id: str, job_dir: Path, datadir: Path, sqlite_path: Path, leveldb_path: Path) -> dict[str, Any]:
     job = db.get_job(job_id)
+    source_dir = datadir / "sources"
+    html_files = sorted(str(path) for path in source_dir.glob("*.html")) if source_dir.exists() else []
+    recursive_html_files = sorted(str(path) for path in source_dir.glob("*.json.gz")) if source_dir.exists() else []
     return {
         "job_id": job_id,
         "status": job["status"] if job else "unknown",
@@ -53,9 +56,12 @@ def build_result(job_id: str, job_dir: Path, datadir: Path, sqlite_path: Path, l
         "leveldb_path": str(leveldb_path),
         "openwpm_log": str(datadir / "openwpm.log"),
         "runner_log": str(job_dir / "runner.log"),
+        "source_dump_dir": str(source_dir),
+        "html_files": html_files,
+        "recursive_html_files": recursive_html_files,
         "urls": job.get("urls", []) if job else [],
         "article_text_status": "not_extracted",
-        "note": "Raw OpenWPM SQLite/LevelDB/content outputs are available at the paths above. Article text extraction can be added as a post-processing step.",
+        "note": "html_files contain rendered top-level page source and can be passed to Trafilatura. recursive_html_files contain gzip-compressed JSON with iframe sources.",
     }
 
 
@@ -116,6 +122,11 @@ def run_job(job_id: str) -> None:
                         sleep=int(options.get("sleep", 3)),
                         timeout=int(options.get("timeout", 400)),
                     )
+
+                if bool(options.get("dump_html", True)):
+                    cs.dump_page_source(suffix=f"url{idx}", timeout=30)
+                if bool(options.get("dump_recursive_html", True)):
+                    cs.recursive_dump_page_source(suffix=f"url{idx}", timeout=30)
 
                 manager.execute_command_sequence(cs)
                 db.update_url(job_id, idx, "succeeded")
