@@ -98,16 +98,25 @@ def run_job(job_id: str) -> None:
                 cs = CommandSequence(url, site_rank=idx)
                 cs.append_command(SetResolution(1600, 800), timeout=10)
                 cs.append_command(SetPosition(50, 200), timeout=10)
-                cs.append_command(
-                    CrawlCommand(
-                        url,
-                        frontier_links=int(options.get("frontier_links", 3)),
-                        dfs_links=int(options.get("dfs_links", 2)),
+
+                mode = options.get("mode", "single_page")
+                if mode == "site_crawl":
+                    cs.append_command(
+                        CrawlCommand(
+                            url,
+                            frontier_links=int(options.get("frontier_links", 3)),
+                            dfs_links=int(options.get("dfs_links", 2)),
+                            sleep=int(options.get("sleep", 3)),
+                            depth=int(options.get("depth", 3)),
+                        ),
+                        timeout=int(options.get("timeout", 400)),
+                    )
+                else:
+                    cs.get(
                         sleep=int(options.get("sleep", 3)),
-                        depth=int(options.get("depth", 3)),
-                    ),
-                    timeout=int(options.get("timeout", 400)),
-                )
+                        timeout=int(options.get("timeout", 400)),
+                    )
+
                 manager.execute_command_sequence(cs)
                 db.update_url(job_id, idx, "succeeded")
             except Exception as exc:
