@@ -2,6 +2,7 @@
 *.txt
 *.zip
 chunks
+*.sqlite
 
 # Tranco list cache directory
 .tranco/
