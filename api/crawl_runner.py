@@ -5,8 +5,9 @@ import json
 import traceback
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
-from openwpm.commands.browser_commands import CrawlCommand
+from openwpm.commands.browser_commands import CrawlCommand, GetCommand
 from openwpm.command_sequence import CommandSequence
 from openwpm.config import BrowserParams, ManagerParams
 from openwpm.storage.leveldb import LevelDbProvider
@@ -22,6 +23,13 @@ def normalize_url(url: str) -> str:
     if "://" not in url:
         return "http://" + url
     return url
+
+
+def homepage_for_url(url: str) -> str:
+    parsed = urlparse(url)
+    if not parsed.scheme or not parsed.netloc:
+        return url
+    return f"{parsed.scheme}://{parsed.netloc}/"
 
 
 def configure_browser(save_content: bool) -> BrowserParams:
@@ -86,6 +94,8 @@ def run_job(job_id: str) -> None:
     db.update_job(job_id, "running")
     manager = None
     failures = 0
+    final_status = "failed"
+    final_error = None
 
     try:
         manager_params = ManagerParams(num_browsers=1)
@@ -101,11 +111,20 @@ def run_job(job_id: str) -> None:
             db.update_url(job_id, idx, "running")
             try:
                 print(f"[{job_id}] visiting {url}", flush=True)
-                cs = CommandSequence(url, site_rank=idx)
-                cs.append_command(SetResolution(1600, 800), timeout=10)
+                source_dir = datadir / "sources"
+                html_before = set(source_dir.glob("*.html")) if source_dir.exists() else set()
+                recursive_before = set(source_dir.glob("*.json.gz")) if source_dir.exists() else set()
+
+                cs = CommandSequence(url, site_rank=idx, blocking=True)
+                cs.append_command(SetResolution(1280, 800), timeout=10)
                 cs.append_command(SetPosition(50, 200), timeout=10)
 
                 mode = options.get("mode", "single_page")
+                if mode == "single_page" and bool(options.get("warmup_homepage", True)):
+                    warmup_url = homepage_for_url(url)
+                    if warmup_url != url:
+                        cs.append_command(GetCommand(warmup_url, int(options.get("sleep", 3))), timeout=int(options.get("timeout", 400)))
+
                 if mode == "site_crawl":
                     cs.append_command(
                         CrawlCommand(
@@ -129,6 +148,17 @@ def run_job(job_id: str) -> None:
                     cs.recursive_dump_page_source(suffix=f"url{idx}", timeout=30)
 
                 manager.execute_command_sequence(cs)
+
+                html_after = set(source_dir.glob("*.html")) if source_dir.exists() else set()
+                recursive_after = set(source_dir.glob("*.json.gz")) if source_dir.exists() else set()
+                new_html_files = [path for path in sorted(html_after - html_before) if path.stat().st_size > 100]
+                new_recursive_files = [path for path in sorted(recursive_after - recursive_before) if path.stat().st_size > 100]
+
+                if bool(options.get("dump_html", True)) and not new_html_files:
+                    raise RuntimeError("crawl finished but no rendered HTML dump was written")
+                if bool(options.get("dump_recursive_html", True)) and not new_recursive_files:
+                    raise RuntimeError("crawl finished but no recursive HTML dump was written")
+
                 db.update_url(job_id, idx, "succeeded")
             except Exception as exc:
                 failures += 1
@@ -136,9 +166,9 @@ def run_job(job_id: str) -> None:
                 traceback.print_exc()
 
         final_status = "failed" if failures == len(urls) else "succeeded"
-        db.update_job(job_id, final_status)
     except Exception as exc:
-        db.update_job(job_id, "failed", error=f"{type(exc).__name__}: {exc}")
+        final_status = "failed"
+        final_error = f"{type(exc).__name__}: {exc}"
         traceback.print_exc()
     finally:
         if manager is not None:
@@ -146,6 +176,7 @@ def run_job(job_id: str) -> None:
                 manager.close()
             except Exception:
                 traceback.print_exc()
+        db.update_job(job_id, final_status, error=final_error)
         result = build_result(job_id, job_dir, datadir, sqlite_path, leveldb_path)
         result_path.write_text(json.dumps(result, indent=2, sort_keys=True))
 
