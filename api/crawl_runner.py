@@ -54,7 +54,6 @@ def build_result(job_id: str, job_dir: Path, datadir: Path, sqlite_path: Path, l
     job = db.get_job(job_id)
     source_dir = datadir / "sources"
     html_files = sorted(str(path) for path in source_dir.glob("*.html")) if source_dir.exists() else []
-    recursive_html_files = sorted(str(path) for path in source_dir.glob("*.json.gz")) if source_dir.exists() else []
     return {
         "job_id": job_id,
         "status": job["status"] if job else "unknown",
@@ -66,10 +65,9 @@ def build_result(job_id: str, job_dir: Path, datadir: Path, sqlite_path: Path, l
         "runner_log": str(job_dir / "runner.log"),
         "source_dump_dir": str(source_dir),
         "html_files": html_files,
-        "recursive_html_files": recursive_html_files,
         "urls": job.get("urls", []) if job else [],
         "article_text_status": "not_extracted",
-        "note": "html_files contain rendered top-level page source and can be passed to Trafilatura. recursive_html_files contain gzip-compressed JSON with iframe sources.",
+        "note": "html_files contain rendered top-level page source and can be passed to Trafilatura.",
     }
 
 
@@ -113,7 +111,6 @@ def run_job(job_id: str) -> None:
                 print(f"[{job_id}] visiting {url}", flush=True)
                 source_dir = datadir / "sources"
                 html_before = set(source_dir.glob("*.html")) if source_dir.exists() else set()
-                recursive_before = set(source_dir.glob("*.json.gz")) if source_dir.exists() else set()
 
                 cs = CommandSequence(url, site_rank=idx, blocking=True)
                 cs.append_command(SetResolution(1280, 800), timeout=10)
@@ -144,21 +141,13 @@ def run_job(job_id: str) -> None:
 
                 if bool(options.get("dump_html", True)):
                     cs.dump_page_source(suffix=f"url{idx}", timeout=30)
-                if bool(options.get("dump_recursive_html", True)):
-                    cs.recursive_dump_page_source(suffix=f"url{idx}", timeout=30)
-
                 manager.execute_command_sequence(cs)
 
                 html_after = set(source_dir.glob("*.html")) if source_dir.exists() else set()
-                recursive_after = set(source_dir.glob("*.json.gz")) if source_dir.exists() else set()
                 new_html_files = [path for path in sorted(html_after - html_before) if path.stat().st_size > 100]
-                new_recursive_files = [path for path in sorted(recursive_after - recursive_before) if path.stat().st_size > 100]
 
                 if bool(options.get("dump_html", True)) and not new_html_files:
                     raise RuntimeError("crawl finished but no rendered HTML dump was written")
-                if bool(options.get("dump_recursive_html", True)) and not new_recursive_files:
-                    raise RuntimeError("crawl finished but no recursive HTML dump was written")
-
                 db.update_url(job_id, idx, "succeeded")
             except Exception as exc:
                 failures += 1
