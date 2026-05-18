@@ -3,6 +3,7 @@
 *.zip
 chunks
 *.sqlite
+jobs
 
 # Environment files
 .env
