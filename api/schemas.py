@@ -8,14 +8,16 @@ from pydantic import BaseModel, Field, HttpUrl, field_validator
 
 class CrawlOptions(BaseModel):
     mode: Literal["single_page", "site_crawl"] = "single_page"
-    frontier_links: int = Field(default=3, ge=0, le=20)
-    dfs_links: int = Field(default=2, ge=0, le=20)
-    depth: int = Field(default=3, ge=0, le=10)
+    command_strategy: Literal["crawl_command", "get_command"] = "crawl_command"
+    frontier_links: int = Field(default=0, ge=0, le=20)
+    dfs_links: int = Field(default=0, ge=0, le=20)
+    depth: int = Field(default=0, ge=0, le=10)
     sleep: int = Field(default=3, ge=0, le=120)
     timeout: int = Field(default=400, ge=30, le=3600)
     save_content: bool = True
     dump_html: bool = True
     warmup_homepage: bool = True
+    cleanup_artifacts: bool = False
 
 
 class CrawlRequest(BaseModel):
@@ -63,3 +65,6 @@ class HealthResponse(BaseModel):
     auth_required: bool
     queued_jobs: int
     running_jobs: int
+    worker_count: int
+    in_memory_queue_size: int
+    queue_capacity: int

@@ -18,10 +18,12 @@ from api.config import (
     HOST,
     JOBS_DIR,
     MAX_BATCH_URLS,
+    MAX_QUEUE_SIZE,
     OPENWPM_ROOT,
     PORT,
     PYTHON_BIN,
     USE_XVFB,
+    WORKER_COUNT,
 )
 from api.schemas import CrawlJobCreated, CrawlJobStatus, CrawlRequest, HealthResponse
 
@@ -31,8 +33,8 @@ app = FastAPI(
     version="0.1.0",
 )
 security = HTTPBearer(auto_error=False)
-job_queue: queue.Queue[str] = queue.Queue()
-worker_started = False
+job_queue: queue.Queue[str] = queue.Queue(maxsize=MAX_QUEUE_SIZE)
+worker_threads_started = 0
 worker_lock = threading.Lock()
 
 
@@ -105,7 +107,7 @@ def run_subprocess(job_id: str) -> int:
         return proc.wait()
 
 
-def worker_loop() -> None:
+def worker_loop(worker_index: int) -> None:
     while True:
         job_id = job_queue.get()
         try:
@@ -120,19 +122,25 @@ def worker_loop() -> None:
                 else:
                     db.update_job(job_id, "failed", error=f"crawler subprocess exited with code {return_code}")
         except Exception as exc:
-            db.update_job(job_id, "failed", error=f"{type(exc).__name__}: {exc}")
+            db.update_job(job_id, "failed", error=f"worker {worker_index}: {type(exc).__name__}: {exc}")
         finally:
             job_queue.task_done()
 
 
 def ensure_worker_started() -> None:
-    global worker_started
+    global worker_threads_started
     with worker_lock:
-        if worker_started:
+        if worker_threads_started >= WORKER_COUNT:
             return
-        thread = threading.Thread(target=worker_loop, name="crawler-api-worker", daemon=True)
-        thread.start()
-        worker_started = True
+        for worker_index in range(worker_threads_started, WORKER_COUNT):
+            thread = threading.Thread(
+                target=worker_loop,
+                args=(worker_index,),
+                name=f"crawler-api-worker-{worker_index}",
+                daemon=True,
+            )
+            thread.start()
+        worker_threads_started = WORKER_COUNT
 
 
 @app.on_event("startup")
@@ -140,8 +148,11 @@ def startup() -> None:
     db.init_db()
     db.mark_interrupted_running_jobs()
     ensure_worker_started()
-    for job in reversed(db.list_jobs(status="queued", limit=1000)):
-        job_queue.put(job["job_id"])
+    for job in reversed(db.list_jobs(status="queued", limit=MAX_QUEUE_SIZE)):
+        try:
+            job_queue.put_nowait(job["job_id"])
+        except queue.Full:
+            break
 
 
 @app.get("/health", response_model=HealthResponse)
@@ -152,6 +163,9 @@ def health() -> HealthResponse:
         auth_required=bool(API_TOKEN),
         queued_jobs=db.count_jobs("queued"),
         running_jobs=db.count_jobs("running"),
+        worker_count=WORKER_COUNT,
+        in_memory_queue_size=job_queue.qsize(),
+        queue_capacity=MAX_QUEUE_SIZE,
     )
 
 
@@ -161,6 +175,12 @@ def create_crawl(request: CrawlRequest) -> CrawlJobCreated:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Batch too large: max {MAX_BATCH_URLS} URLs per job",
+        )
+
+    if job_queue.full():
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Crawler queue is full; retry later or submit smaller batches.",
         )
 
     job_id = make_job_id()
@@ -181,7 +201,14 @@ def create_crawl(request: CrawlRequest) -> CrawlJobCreated:
         log_path=log_path,
         request_payload=payload,
     )
-    job_queue.put(job_id)
+    try:
+        job_queue.put_nowait(job_id)
+    except queue.Full:
+        db.update_job(job_id, "failed", error="Crawler queue is full")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Crawler queue is full; retry later or submit smaller batches.",
+        )
 
     return CrawlJobCreated(
         job_id=job_id,
