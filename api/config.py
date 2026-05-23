@@ -13,6 +13,8 @@ API_TOKEN = os.getenv("CRAWLER_API_TOKEN", "")
 HOST = os.getenv("CRAWLER_API_HOST", "127.0.0.1")
 PORT = int(os.getenv("CRAWLER_API_PORT", "8080"))
 MAX_BATCH_URLS = int(os.getenv("CRAWLER_API_MAX_BATCH_URLS", "20"))
+WORKER_COUNT = int(os.getenv("CRAWLER_API_WORKERS", "4"))
+MAX_QUEUE_SIZE = int(os.getenv("CRAWLER_API_MAX_QUEUE_SIZE", "10000"))
 USE_XVFB = os.getenv("CRAWLER_API_USE_XVFB", "1") == "1"
 DEFAULT_TIMEOUT = int(os.getenv("CRAWLER_API_CRAWL_TIMEOUT", "400"))
 DEFAULT_SLEEP = int(os.getenv("CRAWLER_API_SLEEP", "3"))
