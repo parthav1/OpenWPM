@@ -756,13 +756,35 @@ export function getInstrumentJS(eventId: string, sendMessagesToLogger) {
 
     // More details about how this function is invoked are in
     // content/javascript-instrument-content-scope.ts
-    JSInstrumentRequests.forEach(function (item) {
-      instrumentObject(
-        eval(item.object),
-        item.instrumentedName,
-        item.logSettings,
-      );
-    });
+    const failures: string[] = [];
+    for (const item of JSInstrumentRequests) {
+      try {
+        instrumentObject(
+          eval(item.object),
+          item.instrumentedName,
+          item.logSettings,
+        );
+      } catch (e) {
+        const message =
+          e && (e as Error).message ? (e as Error).message : String(e);
+        failures.push(`${item.instrumentedName}: ${message}`);
+      }
+    }
+    if (failures.length) {
+      // Signal failure via the DOM; GetCommand reads + clears this.
+      try {
+        document.documentElement.setAttribute(
+          "data-openwpm-instrument-error",
+          failures.join("; "),
+        );
+      } catch {
+        // documentElement unwritable; the probe will see nothing.
+        console.warn(
+          "OpenWPM: could not record instrument failure on the DOM; " +
+            "the instrument-status probe will not observe this failure.",
+        );
+      }
+    }
   }
 
   // This whole function getInstrumentJS returns just the function `instrumentJS`.

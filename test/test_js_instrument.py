@@ -4,7 +4,6 @@ from typing import List, Optional, Set, Tuple
 from openwpm.config import BrowserParams, ManagerParams
 from openwpm.utilities import db_utils
 
-from . import utilities as util
 from .openwpm_jstest import OpenWPMJSTest
 
 
@@ -28,16 +27,16 @@ class TestJSInstrumentNonExistingWindowProperty(OpenWPMJSTest):
     METHOD_CALLS: Set[Tuple[str, str, str]] = set()
 
     TEST_PAGE = "instrument_non_existing_window_property.html"
-    TOP_URL = "%s/js_instrument/%s" % (util.BASE_TEST_URL, TEST_PAGE)
 
     def test_instrument_object(self):
         """Ensure instrumentObject logs all property gets, sets, and calls"""
         db = self.visit("/js_instrument/%s" % self.TEST_PAGE)
+        top_url = f"{self.server.base}/js_instrument/{self.TEST_PAGE}"
         self._check_calls(
             db=db,
             symbol_prefix="",
-            doc_url=self.TOP_URL,
-            top_url=self.TOP_URL,
+            doc_url=top_url,
+            top_url=top_url,
             expected_method_calls=self.METHOD_CALLS,
             expected_gets_and_sets=self.GETS_AND_SETS,
         )
@@ -70,16 +69,16 @@ class TestJSInstrumentExistingWindowProperty(OpenWPMJSTest):
     METHOD_CALLS: Set[Tuple[str, str, str]] = set()  # Note 2
 
     TEST_PAGE = "instrument_existing_window_property.html"
-    TOP_URL = "%s/js_instrument/%s" % (util.BASE_TEST_URL, TEST_PAGE)
 
     def test_instrument_object(self):
         """Ensure instrumentObject logs all property gets, sets, and calls"""
         db = self.visit("/js_instrument/%s" % self.TEST_PAGE)
+        top_url = f"{self.server.base}/js_instrument/{self.TEST_PAGE}"
         self._check_calls(
             db=db,
             symbol_prefix="",
-            doc_url=self.TOP_URL,
-            top_url=self.TOP_URL,
+            doc_url=top_url,
+            top_url=top_url,
             expected_method_calls=self.METHOD_CALLS,
             expected_gets_and_sets=self.GETS_AND_SETS,
         )
@@ -89,7 +88,6 @@ class TestJSInstrumentByPython(OpenWPMJSTest):  # noqa
     # This test tests python side configuration. But we can only test
     # built in browser APIs, so we're not using html specced objects.
     TEST_PAGE = "instrument_pyside.html"
-    TOP_URL = "%s/js_instrument/%s" % (util.BASE_TEST_URL, TEST_PAGE)
 
     GETS_AND_SETS = {
         ("window.navigator.webdriver", "get", "true"),
@@ -132,11 +130,12 @@ class TestJSInstrumentByPython(OpenWPMJSTest):  # noqa
     def test_instrument_object(self):
         """Ensure instrumentObject logs all property gets, sets, and calls"""
         db = self.visit("/js_instrument/%s" % self.TEST_PAGE)
+        top_url = f"{self.server.base}/js_instrument/{self.TEST_PAGE}"
         self._check_calls(
             db=db,
             symbol_prefix="",
-            doc_url=self.TOP_URL,
-            top_url=self.TOP_URL,
+            doc_url=top_url,
+            top_url=top_url,
             expected_method_calls=self.METHOD_CALLS,
             expected_gets_and_sets=self.GETS_AND_SETS,
         )
@@ -196,17 +195,17 @@ class TestJSInstrumentMockWindowProperty(OpenWPMJSTest):
     }
 
     TEST_PAGE = "instrument_mock_window_property.html"
-    TOP_URL = "%s/js_instrument/%s" % (util.BASE_TEST_URL, TEST_PAGE)
 
     def test_instrument_object(self):
         """Ensure instrumentObject logs all property gets, sets, and calls"""
         db = self.visit("/js_instrument/%s" % self.TEST_PAGE)
+        top_url = f"{self.server.base}/js_instrument/{self.TEST_PAGE}"
 
         self._check_calls(
             db=db,
             symbol_prefix="",
-            doc_url=self.TOP_URL,
-            top_url=self.TOP_URL,
+            doc_url=top_url,
+            top_url=top_url,
             expected_method_calls=self.METHOD_CALLS,
             expected_gets_and_sets=self.GETS_AND_SETS,
         )
@@ -283,34 +282,34 @@ class TestJSInstrument(OpenWPMJSTest):
         ("window.test3.obj1.prop2", "get", "newprop2"),
     }
 
-    TOP_URL = "%s/js_instrument/instrument_object.html" % util.BASE_TEST_URL
-    FRAME1_URL = "%s/js_instrument/framed1.html" % util.BASE_TEST_URL
-    FRAME2_URL = "%s/js_instrument/framed2.html" % util.BASE_TEST_URL
-
     def test_instrument_object(self):
         """Ensure instrumentObject logs all property gets, sets, and calls"""
         db = self.visit("/js_instrument/instrument_object.html")
+        base = self.server.base
+        top_url = f"{base}/js_instrument/instrument_object.html"
+        frame1_url = f"{base}/js_instrument/framed1.html"
+        frame2_url = f"{base}/js_instrument/framed2.html"
         self._check_calls(
             db=db,
             symbol_prefix="window.test.",
-            doc_url=self.TOP_URL,
-            top_url=self.TOP_URL,
+            doc_url=top_url,
+            top_url=top_url,
             expected_method_calls=self.METHOD_CALLS,
             expected_gets_and_sets=self.GETS_AND_SETS,
         )
         self._check_calls(
             db=db,
             symbol_prefix="window.frame1Test.",
-            doc_url=self.FRAME1_URL,
-            top_url=self.TOP_URL,
+            doc_url=frame1_url,
+            top_url=top_url,
             expected_method_calls=self.METHOD_CALLS,
             expected_gets_and_sets=self.GETS_AND_SETS,
         )
         self._check_calls(
             db=db,
             symbol_prefix="window.frame2Test.",
-            doc_url=self.FRAME2_URL,
-            top_url=self.TOP_URL,
+            doc_url=frame2_url,
+            top_url=top_url,
             expected_method_calls=self.METHOD_CALLS,
             expected_gets_and_sets=self.GETS_AND_SETS,
         )
@@ -322,8 +321,8 @@ class TestJSInstrument(OpenWPMJSTest):
         for row in rows:
             if not row["symbol"].startswith("window.test2.nestedObj"):
                 continue
-            assert row["document_url"] == self.TOP_URL
-            assert row["top_level_url"] == self.TOP_URL
+            assert row["document_url"] == top_url
+            assert row["top_level_url"] == top_url
             if row["operation"] == "get" or row["operation"] == "set":
                 observed_gets_and_sets.add(
                     (row["symbol"], row["operation"], row["value"])
@@ -340,8 +339,8 @@ class TestJSInstrument(OpenWPMJSTest):
         for row in rows:
             if not row["symbol"].startswith("window.test2.l1"):
                 continue
-            assert row["document_url"] == self.TOP_URL
-            assert row["top_level_url"] == self.TOP_URL
+            assert row["document_url"] == top_url
+            assert row["top_level_url"] == top_url
             prop_access.add((row["symbol"], row["operation"], row["value"]))
         assert prop_access == self.RECURSIVE_PROP_SET
 
@@ -351,8 +350,8 @@ class TestJSInstrument(OpenWPMJSTest):
         for row in rows:
             if not row["symbol"].startswith("window.test3"):
                 continue
-            assert row["document_url"] == self.TOP_URL
-            assert row["top_level_url"] == self.TOP_URL
+            assert row["document_url"] == top_url
+            assert row["top_level_url"] == top_url
             if row["operation"] == "call":
                 observed_calls.add((row["symbol"], row["operation"], row["arguments"]))
             else:
@@ -382,16 +381,104 @@ class TestJSInstrumentRecursiveProperties(OpenWPMJSTest):
     METHOD_CALLS: Set[Tuple[str, str, str]] = set()
 
     TEST_PAGE = "instrument_do_not_recurse_properties_to_instrument.html"
-    TOP_URL = "%s/js_instrument/%s" % (util.BASE_TEST_URL, TEST_PAGE)
 
     def test_instrument_object(self):
         """Ensure instrumentObject logs all property gets, sets, and calls"""
         db = self.visit("/js_instrument/%s" % self.TEST_PAGE)
+        top_url = f"{self.server.base}/js_instrument/{self.TEST_PAGE}"
         self._check_calls(
             db=db,
             symbol_prefix="",
-            doc_url=self.TOP_URL,
-            top_url=self.TOP_URL,
+            doc_url=top_url,
+            top_url=top_url,
             expected_method_calls=self.METHOD_CALLS,
             expected_gets_and_sets=self.GETS_AND_SETS,
         )
+
+
+class TestJSInstrumentFailurePropagates(OpenWPMJSTest):
+    """An instrument target that cannot be resolved/instrumented is fatal.
+
+    Incomplete instrumentation means the browser would record an invalid
+    measurement, so the desired behavior is that such a browser *never*
+    produces a successful visit: every GetCommand fails with a
+    ``JS instrumentation failed`` error, no ``javascript`` data is recorded,
+    and the visit is marked incomplete. This is intentionally the opposite of
+    silently skipping the failing target and continuing to collect partial
+    data.
+
+    ``instrument_pyside.html`` is reused on purpose: with a *valid* config it
+    exercises instrumented APIs (cookies, ``fetch``) that populate the
+    ``javascript`` table (see ``TestJSInstrumentByPython``). Asserting that the
+    table stays empty here therefore proves the browser never started
+    measuring, rather than merely that one command returned an error.
+    """
+
+    TEST_PAGE = "instrument_pyside.html"
+
+    def get_config(
+        self, data_dir: Optional[Path]
+    ) -> Tuple[ManagerParams, List[BrowserParams]]:
+        manager_params, browser_params = super().get_config(data_dir)
+        # ``window.NonExistent`` is undefined, so resolving
+        # ``window.NonExistent.deeplyMissing`` throws while setting up the
+        # instrumentation. This stands in for a real-world misconfiguration
+        # such as instrumenting a Worker-only global on the window scope.
+        #
+        # Two distinct failing targets are configured so the test also
+        # verifies that *every* failure is reported, not just the first or
+        # last one: ``instrumentJS`` runs all requests to completion and
+        # aggregates their messages into a single error.
+        browser_params[0].js_instrument_settings = [
+            {"window.NonExistent.deeplyMissing": ["foo"]},
+            {"window.AlsoMissing.deeplyMissing": ["bar"]},
+        ]
+        return manager_params, browser_params
+
+    def test_failure_prevents_measurement(self):
+        db = self.visit("/js_instrument/%s" % self.TEST_PAGE)
+
+        # The GetCommand must surface the instrumentation failure.
+        get_rows = db_utils.query_db(
+            db,
+            "SELECT command_status, error FROM crawl_history "
+            "WHERE command = 'GetCommand'",
+        )
+        assert get_rows, "expected a GetCommand row in crawl_history"
+        statuses = [row["command_status"] for row in get_rows]
+        errors = [row["error"] or "" for row in get_rows]
+        assert any(
+            "JS instrumentation failed" in e for e in errors
+        ), f"expected instrumentation error message, got errors={errors}"
+        assert any(
+            "window.NonExistent.deeplyMissing" in e for e in errors
+        ), f"expected failing item name in error, got errors={errors}"
+        # Both failing targets must appear in the same aggregated error: the
+        # instrument loop runs to completion and reports every failure, so a
+        # regression to first- or last-only reporting would drop one of these.
+        assert any(
+            "window.NonExistent.deeplyMissing" in e
+            and "window.AlsoMissing.deeplyMissing" in e
+            for e in errors
+        ), f"expected both failing item names in a single error, got errors={errors}"
+
+        # The browser must never become healthy: no GetCommand may succeed.
+        # If it ever returned "ok" the browser would have started measuring
+        # despite the incomplete instrumentation.
+        assert "ok" not in statuses, (
+            "no GetCommand should succeed when instrumentation fails, "
+            f"got statuses={statuses}"
+        )
+
+        # No measurement data may be collected. ``instrument_pyside.html``
+        # would populate this table under a valid config; an empty table
+        # confirms the browser never started collecting.
+        js_rows = db_utils.get_javascript_entries(db)
+        assert not js_rows, (
+            "expected no javascript rows when instrumentation fails, "
+            f"got {len(js_rows)} rows"
+        )
+
+        # The visit must be recorded as incomplete (finalized success=False).
+        incomplete = db_utils.query_db(db, "SELECT visit_id FROM incomplete_visits")
+        assert incomplete, "expected the failed visit to be marked incomplete"

@@ -6,6 +6,18 @@ from typing import Any, Callable, Generator, List, Literal, Protocol, Tuple, Typ
 
 import pytest
 
+# Enable pytest's assertion rewriting (the rich observed-vs-expected diff) for
+# shared test helper/base modules. pytest only rewrites collected test modules
+# and conftest.py automatically; helper modules that hold runtime asserts (e.g.
+# OpenWPMJSTest._check_calls' `assert observed == expected`) are otherwise run
+# un-rewritten and fail with a bare `AssertionError`. This call must run before
+# those modules are first imported, so it stays above every other import here.
+pytest.register_assert_rewrite(
+    "test.openwpm_jstest",
+    "test.openwpmtest",
+    "openwpm.utilities.db_utils",
+)
+
 from openwpm.config import BrowserParams, ManagerParams
 from openwpm.mp_logger import MPLogger
 from openwpm.storage.sql_provider import SQLiteStorageProvider
@@ -13,6 +25,7 @@ from openwpm.task_manager import TaskManager
 
 from . import utilities
 from .openwpmtest import NUM_BROWSERS
+from .utilities import ServerUrls
 
 EXTENSION_DIR = os.path.join(
     os.path.dirname(os.path.realpath(__file__)),
@@ -52,10 +65,10 @@ def xpi_fixture():
 
 @pytest.fixture(scope="session")
 def server():
-    """Run an HTTP server during the tests."""
+    """Run an HTTP server during the tests and yield its URLs."""
     print("Starting local_http_server")
-    server, server_thread = utilities.start_server()
-    yield
+    server, server_thread, urls = utilities.start_server()
+    yield urls
     print("\nClosing server thread...")
     server.shutdown()
     server_thread.join()
@@ -85,7 +98,7 @@ TaskManagerCreator: TypeAlias = Callable[[FullConfig], Tuple[TaskManager, Path]]
 
 
 @pytest.fixture()
-def task_manager_creator(server: None, xpi: None) -> TaskManagerCreator:
+def task_manager_creator(server: ServerUrls, xpi: None) -> TaskManagerCreator:
     """We create a callable that returns a TaskManager that has
     been configured with the Manager and BrowserParams"""
 
