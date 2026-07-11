@@ -22,6 +22,9 @@ module.exports = {
   },
   resolve: {
     extensions: [".ts", "..."],
+    extensionAlias: {
+      ".js": [".ts", ".js"],
+    },
   },
   mode: "development",
   devtool: "inline-source-map",

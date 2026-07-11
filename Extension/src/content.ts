@@ -9,7 +9,7 @@ const config = window.openWpmContentScriptConfig || {
 if (config.useStealth) {
   console.log("OpenWPM: Initializing stealth JS instrumentation");
   // Stealth auto-initializes via its IIFE in stealth.ts
-  import("./stealth/stealth");
+  import("./stealth/stealth.js");
 } else {
   // Use regular instrumentation
   injectJavascriptInstrumentPageScript(config);

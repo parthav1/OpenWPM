@@ -16,4 +16,5 @@ dist
 openwpm.xpi
 bundled/content.js
 bundled/feature.js
+bundled/src_*.js
 bundled/privileged/sockets/bufferpack.js
